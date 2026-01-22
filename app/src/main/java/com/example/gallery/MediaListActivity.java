@@ -1,22 +1,31 @@
 package com.example.gallery;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
+import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.IntentSender;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import java.util.ArrayList;
+
 public class MediaListActivity extends AppCompatActivity {
+    private Button btnDelete;
+        private static final int DELETE_REQUEST_CODE = 300;
 
     private static final String EXTRA_IS_VIDEO = "type";
     private RecyclerView recyclerView;
@@ -25,6 +34,7 @@ public class MediaListActivity extends AppCompatActivity {
     private boolean isDialogShowing = false;
     private boolean isProcessingPermission = false;
     private ActivityResultLauncher<String[]> permissionLauncher;
+    MediaAdapter adapter;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,6 +43,7 @@ public class MediaListActivity extends AppCompatActivity {
 
         recyclerView = findViewById(R.id.recyclerView);
         btnManageAccess = findViewById(R.id.btnManageAccess);
+        btnDelete = findViewById(R.id.btnDelete);
         recyclerView.setLayoutManager(new GridLayoutManager(this, 3));
 
         isVideo = "video".equals(getIntent().getStringExtra(EXTRA_IS_VIDEO));
@@ -44,6 +55,14 @@ public class MediaListActivity extends AppCompatActivity {
                     checkAndLoad();
                 }
         );
+        btnDelete.setOnClickListener(v -> {
+            new AlertDialog.Builder(this)
+                    .setTitle("Delete media")
+                    .setMessage("Delete selected items?")
+                    .setPositiveButton("Delete", (d, w) -> deleteSelected())
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
 
         // ✅ FIX: Filter the picker to only show the relevant media type
         btnManageAccess.setOnClickListener(v -> {
@@ -87,6 +106,29 @@ public class MediaListActivity extends AppCompatActivity {
             }
         }
     }
+    private void deleteSelected() {
+        ArrayList<Uri> uris = adapter.getSelectedUris();
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            PendingIntent pi =
+                    MediaStore.createTrashRequest(getContentResolver(), uris, true);
+            try {
+                startIntentSenderForResult(
+                        pi.getIntentSender(),
+                        DELETE_REQUEST_CODE,
+                        null, 0, 0, 0
+                );
+            } catch (IntentSender.SendIntentException e) {
+                e.printStackTrace();
+            }
+        } else {
+            for (Uri u : uris) {
+                getContentResolver().delete(u, null, null);
+            }
+            adapter.removeSelected();
+            btnDelete.setVisibility(View.GONE);
+        }
+    }
 
     private void requestPermission() {
         if (isProcessingPermission) return;
@@ -111,7 +153,14 @@ public class MediaListActivity extends AppCompatActivity {
         }
     }
 
-    // ... rest of your methods (shouldShowRationale, showPermissionDialog, loadMedia)
+    @Override
+    protected void onActivityResult(int req, int res, @Nullable Intent data) {
+        super.onActivityResult(req, res, data);
+        if (req == DELETE_REQUEST_CODE && res == RESULT_OK) {
+            adapter.removeSelected();
+            btnDelete.setVisibility(View.GONE);
+        }
+    }
 
     private boolean shouldShowRationale() {
         if (Build.VERSION.SDK_INT >= 33) {
@@ -152,7 +201,21 @@ public class MediaListActivity extends AppCompatActivity {
 
     private void loadMedia() {
         new MediaFetcher(this, isVideo ? "video" : "image", list -> {
-            recyclerView.setAdapter(new MediaAdapter(list, pos -> { }));
+            adapter = new MediaAdapter(list, count -> {
+                btnDelete.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+            });
+            recyclerView.setAdapter(adapter);
         }).execute();
     }
+    @SuppressLint("GestureBackNavigation")
+    @Override
+    public void onBackPressed() {
+        if (adapter != null && adapter.isSelectionMode()) {
+            adapter.clearSelection();
+            btnDelete.setVisibility(View.GONE);
+        } else {
+            super.onBackPressed(); // closes activity
+        }
+    }
+
 }

@@ -12,17 +12,18 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
-
 public class MediaAdapter extends RecyclerView.Adapter<MediaAdapter.VH> {
 
-    public interface OnItemClick {
-        void onClick(int position);
+    public interface SelectionListener {
+        void onSelectionChanged(int count);
     }
 
     private final ArrayList<MediaModel> list;
-    private final OnItemClick listener;
+    private final ArrayList<Integer> selectedPositions = new ArrayList<>();
+    private boolean selectionMode = false;
+    private final SelectionListener listener;
 
-    public MediaAdapter(ArrayList<MediaModel> list, OnItemClick listener) {
+    public MediaAdapter(ArrayList<MediaModel> list, SelectionListener listener) {
         this.list = list;
         this.listener = listener;
     }
@@ -36,23 +37,83 @@ public class MediaAdapter extends RecyclerView.Adapter<MediaAdapter.VH> {
     }
 
     @Override
-    public void onBindViewHolder(@NonNull VH holder, int position) {
+    public void onBindViewHolder(@NonNull VH h, int pos) {
+        MediaModel m = list.get(pos);
+        Uri uri = Uri.parse(m.getUri());
 
-        MediaModel model = list.get(position);
-        Uri uri = Uri.parse(model.getUri());
-
-        Glide.with(holder.imageView.getContext())
+        Glide.with(h.imageView.getContext())
                 .load(uri)
                 .centerCrop()
-                .into(holder.imageView);
+                .into(h.imageView);
 
-        holder.playIcon.setVisibility(
-                model.isVideo() ? View.VISIBLE : View.GONE
-        );
+        h.playIcon.setVisibility(m.isVideo() ? View.VISIBLE : View.GONE);
 
-        holder.itemView.setOnClickListener(v ->
-                listener.onClick(position)
-        );
+        // Selection UI
+        if (selectionMode) {
+            h.selectIcon.setVisibility(View.VISIBLE);
+            h.selectIcon.setImageResource(
+                    selectedPositions.contains(pos)
+                            ? R.drawable.ic_circle_tick
+                            : R.drawable.ic_circle_empty
+            );
+        } else {
+            h.selectIcon.setVisibility(View.GONE);
+        }
+
+        h.itemView.setOnLongClickListener(v -> {
+            if (!selectionMode) {
+                selectionMode = true;
+                toggle(pos);
+            }
+            return true;
+        });
+
+        h.itemView.setOnClickListener(v -> {
+            if (selectionMode) {
+                toggle(pos);
+            }
+        });
+    }
+
+    private void toggle(int pos) {
+        if (selectedPositions.contains(pos)) {
+            selectedPositions.remove((Integer) pos);
+        } else {
+            selectedPositions.add(pos);
+        }
+
+        if (selectedPositions.isEmpty()) {
+            selectionMode = false;
+        }
+
+        notifyDataSetChanged();
+        listener.onSelectionChanged(selectedPositions.size());
+    }
+    public void clearSelection() {
+        selectedPositions.clear();
+        selectionMode = false;
+        notifyDataSetChanged();
+    }
+    public boolean isSelectionMode() {
+        return selectionMode;
+    }
+
+    public ArrayList<Uri> getSelectedUris() {
+        ArrayList<Uri> uris = new ArrayList<>();
+        for (int pos : selectedPositions) {
+            uris.add(Uri.parse(list.get(pos).getUri()));
+        }
+        return uris;
+    }
+
+    public void removeSelected() {
+        selectedPositions.sort((a, b) -> b - a);
+        for (int pos : selectedPositions) {
+            list.remove(pos);
+        }
+        selectedPositions.clear();
+        selectionMode = false;
+        notifyDataSetChanged();
     }
 
     @Override
@@ -61,14 +122,13 @@ public class MediaAdapter extends RecyclerView.Adapter<MediaAdapter.VH> {
     }
 
     static class VH extends RecyclerView.ViewHolder {
+        ImageView imageView, playIcon, selectIcon;
 
-        ImageView imageView;
-        ImageView playIcon;
-
-        VH(@NonNull View itemView) {
-            super(itemView);
-            imageView = itemView.findViewById(R.id.imgMedia);
-            playIcon = itemView.findViewById(R.id.imgPlay);
+        VH(@NonNull View v) {
+            super(v);
+            imageView = v.findViewById(R.id.imgMedia);
+            playIcon = v.findViewById(R.id.imgPlay);
+            selectIcon = v.findViewById(R.id.imgSelect);
         }
     }
 }

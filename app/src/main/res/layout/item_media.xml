@@ -19,5 +19,15 @@
         android:src="@android:drawable/ic_media_play"
         android:visibility="gone"/>
 
+    <!-- SELECTION CIRCLE -->
+    <ImageView
+        android:id="@+id/imgSelect"
+        android:layout_width="22dp"
+        android:layout_height="22dp"
+        android:layout_gravity="top|end"
+        android:layout_margin="6dp"
+        android:src="@drawable/ic_circle_empty"
+        android:visibility="gone"/>
+
 </FrameLayout>
 
