@@ -201,12 +201,19 @@ public class MediaListActivity extends AppCompatActivity {
 
     private void loadMedia() {
         new MediaFetcher(this, isVideo ? "video" : "image", list -> {
+
+            // 🔥🔥🔥 THIS IS THE FIX 🔥🔥🔥
+            MediaRepository.getInstance().setList(list);
+
             adapter = new MediaAdapter(list, count -> {
                 btnDelete.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
             });
+
             recyclerView.setAdapter(adapter);
         }).execute();
     }
+
+
     @SuppressLint("GestureBackNavigation")
     @Override
     public void onBackPressed() {

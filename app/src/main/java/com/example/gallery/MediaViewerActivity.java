@@ -18,48 +18,77 @@ import androidx.media3.exoplayer.ExoPlayer;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager2.widget.ViewPager2;
 import java.util.ArrayList;
-
 public class MediaViewerActivity extends AppCompatActivity {
 
     private ViewPagerAdapter adapter;
     private ExoPlayer player;
+    private int currentPage;
     private ArrayList<MediaModel> list;
-    ViewPager2 pager;
+    private ViewPager2 pager;
+
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         setContentView(R.layout.activity_media_viewer);
 
         list = MediaRepository.getInstance().getList();
-        int start = getIntent().getIntExtra("pos", 0);
+        if (list == null || list.isEmpty()) {
+            finish();
+            return;
+        }
+
+        currentPage = getIntent().getIntExtra("pos", 0);
 
         player = new ExoPlayer.Builder(this).build();
         pager = findViewById(R.id.viewPager);
 
         adapter = new ViewPagerAdapter(list, player);
         pager.setAdapter(adapter);
-        pager.setCurrentItem(start, false);
+        pager.setCurrentItem(currentPage, false);
 
         pager.post(() -> {
             RecyclerView rv = (RecyclerView) pager.getChildAt(0);
-            adapter.attachPlayer(start, rv);
+            adapter.attachPlayer(currentPage, rv);
         });
-
 
         pager.registerOnPageChangeCallback(
                 new ViewPager2.OnPageChangeCallback() {
                     @Override
                     public void onPageSelected(int pos) {
+                        currentPage = pos;
                         RecyclerView rv = (RecyclerView) pager.getChildAt(0);
                         adapter.attachPlayer(pos, rv);
                     }
                 }
         );
 
-
         findViewById(R.id.btnEdit).setOnClickListener(v -> edit(pager));
         findViewById(R.id.btnDelete).setOnClickListener(v -> del(pager));
     }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        adapter.stop();   // ✅ stop cleanly
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        pager.post(() -> {
+            RecyclerView rv = (RecyclerView) pager.getChildAt(0);
+            adapter.attachPlayer(currentPage, rv); // ✅ reattach
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        player.release();
+    }
+
+    // edit & delete methods unchanged
+
 
     private void edit(ViewPager2 p) {
         int currentPos = p.getCurrentItem();
@@ -80,6 +109,7 @@ public class MediaViewerActivity extends AppCompatActivity {
             Toast.makeText(this, "No editing app found", Toast.LENGTH_SHORT).show();
         }
     }
+
     private static final int DELETE_REQUEST_CODE = 123;
 
     private void del(ViewPager2 p) {
@@ -134,6 +164,7 @@ public class MediaViewerActivity extends AppCompatActivity {
                     .show();
         }
     }
+
     private void onDeleteSuccess(int pos) {
         // 1. Remove from the shared repository list immediately
         list.remove(pos);
@@ -161,15 +192,4 @@ public class MediaViewerActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    protected void onPause() {
-        super.onPause();
-        adapter.stop();
-    }
-
-    @Override
-    protected void onDestroy() {
-        super.onDestroy();
-        player.release();
-    }
 }

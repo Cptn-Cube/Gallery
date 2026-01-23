@@ -1,5 +1,7 @@
 package com.example.gallery;
 
+import android.content.Context;
+import android.content.Intent;
 import android.net.Uri;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -48,7 +50,6 @@ public class MediaAdapter extends RecyclerView.Adapter<MediaAdapter.VH> {
 
         h.playIcon.setVisibility(m.isVideo() ? View.VISIBLE : View.GONE);
 
-        // Selection UI
         if (selectionMode) {
             h.selectIcon.setVisibility(View.VISIBLE);
             h.selectIcon.setImageResource(
@@ -56,8 +57,6 @@ public class MediaAdapter extends RecyclerView.Adapter<MediaAdapter.VH> {
                             ? R.drawable.ic_circle_tick
                             : R.drawable.ic_circle_empty
             );
-        } else {
-            h.selectIcon.setVisibility(View.GONE);
         }
 
         h.itemView.setOnLongClickListener(v -> {
@@ -71,6 +70,12 @@ public class MediaAdapter extends RecyclerView.Adapter<MediaAdapter.VH> {
         h.itemView.setOnClickListener(v -> {
             if (selectionMode) {
                 toggle(pos);
+            } else {
+                Intent i = new Intent(h.imageView.getContext(), MediaViewerActivity.class);
+                i.putExtra("pos", pos);
+                i.putExtra("type", m.isVideo() ? "video" : "image");
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                h.imageView.getContext().startActivity(i);
             }
         });
     }

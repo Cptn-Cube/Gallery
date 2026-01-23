@@ -15,9 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 
 import java.util.ArrayList;
-
-public class ViewPagerAdapter
-        extends RecyclerView.Adapter<ViewPagerAdapter.VH> {
+public class ViewPagerAdapter extends RecyclerView.Adapter<ViewPagerAdapter.VH> {
 
     private final ArrayList<MediaModel> list;
     private final ExoPlayer player;
@@ -38,25 +36,24 @@ public class ViewPagerAdapter
 
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
-
         MediaModel model = list.get(position);
 
-        if (!model.isVideo()) {
-            holder.playerView.setVisibility(View.GONE);
-            holder.imageView.setVisibility(View.VISIBLE);
+        // reset views
+        holder.imageView.setVisibility(View.GONE);
+        holder.playerView.setVisibility(View.GONE);
+        holder.playerView.setPlayer(null);
 
+        if (model.isVideo()) {
+            holder.playerView.setVisibility(View.VISIBLE);
+        } else {
+            holder.imageView.setVisibility(View.VISIBLE);
             Glide.with(holder.imageView.getContext())
                     .load(Uri.parse(model.getUri()))
                     .fitCenter()
                     .into(holder.imageView);
-
-        } else {
-            holder.imageView.setVisibility(View.GONE);
-            holder.playerView.setVisibility(View.VISIBLE);
-            holder.playerView.setPlayer(null);
-
         }
     }
+
     public void attachPlayer(int position,RecyclerView recyclerView) {
         if (position < 0 || position >= list.size()) return;
 
@@ -79,39 +76,19 @@ public class ViewPagerAdapter
         player.seekTo(model.playbackPosition);
         player.setPlayWhenReady(true);
     }
-
-    /** ▶ Play video at position */
-    public void play(int pos) {
-        if (pos < 0 || pos >= list.size()) return;
-
-        MediaModel model = list.get(pos);
-        if (!model.isVideo()) return;
-
-        stop();
-        current = pos;
-
-        player.setMediaItem(MediaItem.fromUri(model.getUri()));
-        player.prepare();
-        player.seekTo(model.playbackPosition);
-        player.play();
-
-        notifyItemChanged(pos);
-    }
-
-    /** ⏸ Save position & pause */
+    /** ⏸ Stop and save position */
     public void stop() {
         if (current != -1 && current < list.size()) {
             MediaModel model = list.get(current);
             model.playbackPosition = player.getCurrentPosition();
 
             player.setPlayWhenReady(false);
-            player.stop();        // 🔥 IMPORTANT
+            player.stop();
             player.clearMediaItems();
 
             current = -1;
         }
     }
-
 
     @Override
     public int getItemCount() {
