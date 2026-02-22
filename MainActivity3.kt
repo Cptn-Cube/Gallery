@@ -1,5 +1,6 @@
 package com.example.musicplayer
 
+import android.animation.ValueAnimator
 import android.content.*
 import android.os.*
 import android.provider.MediaStore
@@ -101,67 +102,153 @@ class MainActivity3 : AppCompatActivity() {
         return dp * resources.displayMetrics.density
     }
 
+//    private fun togglePanel() {
+//
+////        val moveDistance = panelPlayer.height - 140  // only seekbar visible
+////        val playerHeight = resources.getDimensionPixelSize(R.dimen._260sdp)
+//        val miniPlayerVisible = dpToPxF(80F) // 80dp visible mini player
+//        val moveDistance = panelPlayer.height - miniPlayerVisible
+//
+//        if (!isCollapsed) {
+//
+//            panelPlayer.animate()
+//                .translationY(-moveDistance.toFloat())
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            upArrow.animate()
+//                .translationY(-moveDistance.toFloat())
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            recycler.animate()
+//                .translationY(-moveDistance.toFloat())
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            panelCarousel.animate()
+//                .translationY(-moveDistance.toFloat())
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//
+//
+//
+//            upArrow.setImageResource(R.drawable.down_arrow)
+//            isCollapsed = true
+//
+//        } else {
+//
+//            panelPlayer.animate()
+//                .translationY(0f)
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            upArrow.animate()
+//                .translationY(0F)
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            recycler.animate()
+//                .translationY(0F)
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            panelCarousel.animate()
+//                .translationY(0F)
+//                .setDuration(350)
+//                .setInterpolator(AccelerateDecelerateInterpolator())
+//                .start()
+//            upArrow.setImageResource(R.drawable.up_arrow)
+//            isCollapsed = false
+//        }
+//    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
+    }
+//    private fun animatePanelHeight(from: Int, to: Int) {
+//
+//        val animator = ValueAnimator.ofInt(from, to)
+//
+//        animator.addUpdateListener {
+//            val value = it.animatedValue as Int
+//            val params = panelPlayer.layoutParams
+//            params.height = value
+//            panelPlayer.layoutParams = params
+//            panelCarousel.layoutParams = params
+//        }
+//
+//        animator.duration = 350
+//        animator.interpolator = AccelerateDecelerateInterpolator()
+//        animator.start()
+//    }
+//
+//private fun togglePanel() {
+//
+//    val expandedHeight = dpToPx(360)
+//    val collapsedHeight = dpToPx(80) // mini player size
+//
+//    val currentHeight = panelPlayer.height
+//
+//    if (!isCollapsed) {
+//        animatePanelHeight(currentHeight, collapsedHeight)
+//        upArrow.setImageResource(R.drawable.down_arrow)
+//        isCollapsed = true
+//    } else {
+//        animatePanelHeight(currentHeight, expandedHeight)
+//        upArrow.setImageResource(R.drawable.up_arrow)
+//        isCollapsed = false
+//    }
+//}
+private fun animatePanelHeight(from: Int, to: Int) {
+
+    val animator = ValueAnimator.ofInt(from, to)
+
+    animator.addUpdateListener { animation ->
+
+        val value = animation.animatedValue as Int
+
+        val params = panelPlayer.layoutParams as RelativeLayout.LayoutParams
+        params.height = value
+        panelPlayer.layoutParams = params
+        panelCarousel.layoutParams = params
+
+        // Force layout recalculation so RecyclerView expands
+        panelPlayer.requestLayout()
+    }
+
+    animator.duration = 350
+    animator.interpolator = AccelerateDecelerateInterpolator()
+    animator.start()
+}
+    private var expandedHeight = 0
+
+
     private fun togglePanel() {
 
-//        val moveDistance = panelPlayer.height - 140  // only seekbar visible
-//        val playerHeight = resources.getDimensionPixelSize(R.dimen._260sdp)
-        val miniPlayerVisible = dpToPxF(80F) // 80dp visible mini player
-        val moveDistance = panelPlayer.height - miniPlayerVisible
+        if (expandedHeight == 0)
+            expandedHeight = panelPlayer.height
+
+        val collapsedHeight = dpToPx(80) // visible mini player
 
         if (!isCollapsed) {
 
-            panelPlayer.animate()
-                .translationY(-moveDistance.toFloat())
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-            upArrow.animate()
-                .translationY(-moveDistance.toFloat())
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-            recycler.animate()
-                .translationY(-moveDistance.toFloat())
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-            panelCarousel.animate()
-                .translationY(-moveDistance.toFloat())
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-
-
-
+            animatePanelHeight(panelPlayer.height, collapsedHeight)
             upArrow.setImageResource(R.drawable.down_arrow)
             isCollapsed = true
 
         } else {
 
-            panelPlayer.animate()
-                .translationY(0f)
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-            upArrow.animate()
-                .translationY(0F)
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-            recycler.animate()
-                .translationY(0F)
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
-            panelCarousel.animate()
-                .translationY(0F)
-                .setDuration(350)
-                .setInterpolator(AccelerateDecelerateInterpolator())
-                .start()
+            animatePanelHeight(panelPlayer.height, expandedHeight)
             upArrow.setImageResource(R.drawable.up_arrow)
             isCollapsed = false
         }
     }
+
+
+
+
 
     // ---------- PROGRESS ----------
     private fun startProgressUpdater() {
