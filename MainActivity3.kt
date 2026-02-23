@@ -2,13 +2,24 @@ package com.example.musicplayer
 
 import android.animation.ValueAnimator
 import android.content.*
+import android.media.MediaScannerConnection
+import android.net.Uri
 import android.os.*
 import android.provider.MediaStore
 import android.view.View
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.*
+import com.shabinder.jaudiotagger.audio.AudioFileIO
+import com.shabinder.jaudiotagger.tag.FieldKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
+
 
 class MainActivity3 : AppCompatActivity() {
 
@@ -77,7 +88,13 @@ class MainActivity3 : AppCompatActivity() {
 
         val db = AppDatabase.getDatabase(this)
 
-        listAdapter = MusicAdapter(musicList, { pos -> service?.play(pos) }, db)
+        listAdapter  = MusicAdapter(
+            musicList,
+            { pos -> service?.play(pos) },
+            { song -> showEditDialog(song) },
+            db,
+            false
+        )
         recycler.adapter = listAdapter
 
         carouselAdapter = CoverCarouselAdapter(musicList) { pos ->
@@ -100,6 +117,68 @@ class MainActivity3 : AppCompatActivity() {
 
     fun Context.dpToPxF(dp: Float): Float {
         return dp * resources.displayMetrics.density
+    }
+    private fun reloadMusicLibrary() {
+        musicList.clear()
+        loadMusic()
+        listAdapter.notifyDataSetChanged()
+    }
+    private fun showEditDialog(song: MusicModel) {
+
+        val view = layoutInflater.inflate(R.layout.dialog_edit_song, null)
+
+        val editTitle = view.findViewById<EditText>(R.id.editTitle)
+        val editArtist = view.findViewById<EditText>(R.id.editArtist)
+
+        editTitle.setText(song.title)
+        editArtist.setText(song.artist)
+
+        AlertDialog.Builder(this)
+            .setTitle("Edit Song Info")
+            .setView(view)
+            .setPositiveButton("Save") { _, _ ->
+
+                val newTitle = editTitle.text.toString()
+                val newArtist = editArtist.text.toString()
+
+                editSongMetadata(song.uri, newTitle, newArtist)
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+    private fun editSongMetadata(uri: String, newTitle: String, newArtist: String) {
+
+        CoroutineScope(Dispatchers.IO).launch {
+
+            try {
+
+                val file = File(Uri.parse(uri).path!!)
+
+                val audioFile = AudioFileIO.read(file)
+                val tag = audioFile.tagOrCreateAndSetDefault
+
+                tag.setField(FieldKey.TITLE, newTitle)
+                tag.setField(FieldKey.ARTIST, newArtist)
+
+                audioFile.commit()
+
+                // Tell Android to rescan file
+                MediaScannerConnection.scanFile(
+                    this@MainActivity3,
+                    arrayOf(file.absolutePath),
+                    null,
+                    null
+                )
+
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity3, "Updated!", Toast.LENGTH_SHORT).show()
+                    reloadMusicLibrary()
+                }
+
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
 //    private fun togglePanel() {
