@@ -12,15 +12,20 @@ import kotlinx.coroutines.*
 class MusicAdapter(
     private var list: MutableList<MusicModel>,
     private val onClick: (Int) -> Unit,
+    private val onEdit: (MusicModel) -> Unit,
     private val db: AppDatabase,
     private val isFavScreen: Boolean = false
 ) : RecyclerView.Adapter<MusicAdapter.VH>() {
 
     private var playingIndex = -1
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+
+    // ---------------- PLAYING HIGHLIGHT ----------------
 
     fun setPlayingIndex(index: Int) {
         val old = playingIndex
         playingIndex = index
+
         if (old != -1) notifyItemChanged(old)
         if (index != -1) notifyItemChanged(index)
     }
@@ -29,6 +34,8 @@ class MusicAdapter(
         list = newList
         notifyDataSetChanged()
     }
+
+    // ---------------- VIEW HOLDER ----------------
 
     inner class VH(parent: ViewGroup) :
         RecyclerView.ViewHolder(
@@ -48,6 +55,8 @@ class MusicAdapter(
 
     override fun getItemCount() = list.size
 
+    // ---------------- BIND ----------------
+
     override fun onBindViewHolder(holder: VH, position: Int) {
 
         val song = list[position]
@@ -60,14 +69,26 @@ class MusicAdapter(
 
         // ---------- PLAY CLICK ----------
         holder.itemView.setOnClickListener {
-            onClick(holder.adapterPosition)
+            val pos = holder.adapterPosition
+            if (pos != RecyclerView.NO_POSITION) {
+                onClick(pos)
+            }
+        }
+
+        // ---------- LONG PRESS EDIT ----------
+        holder.itemView.setOnLongClickListener {
+            onEdit(song)
+            true
         }
 
         // ---------- HEART STATE ----------
-        CoroutineScope(Dispatchers.IO).launch {
-            val isFav = db.musicDao().isFav(song.id)
+        scope.launch {
 
-            withContext(Dispatchers.Main) {
+            val isFav = withContext(Dispatchers.IO) {
+                db.musicDao().isFav(song.id)
+            }
+
+            if (holder.adapterPosition != RecyclerView.NO_POSITION) {
                 holder.fav.setImageResource(
                     if (isFav) R.drawable.fill_heart
                     else R.drawable.empty_heart
@@ -81,7 +102,7 @@ class MusicAdapter(
             val adapterPos = holder.adapterPosition
             if (adapterPos == RecyclerView.NO_POSITION) return@setOnClickListener
 
-            CoroutineScope(Dispatchers.IO).launch {
+            scope.launch {
 
                 val dao = db.musicDao()
                 val favEntity = FavEntity(
@@ -92,28 +113,29 @@ class MusicAdapter(
                     song.albumId
                 )
 
-                val alreadyFav = dao.isFav(song.id)
-
-                if (alreadyFav) {
-                    dao.removeFav(favEntity)
-                } else {
-                    dao.addFav(favEntity)
+                val alreadyFav = withContext(Dispatchers.IO) {
+                    dao.isFav(song.id)
                 }
 
-                val newState = dao.isFav(song.id)
+                if (alreadyFav) {
+                    withContext(Dispatchers.IO) { dao.removeFav(favEntity) }
+                } else {
+                    withContext(Dispatchers.IO) { dao.addFav(favEntity) }
+                }
 
-                withContext(Dispatchers.Main) {
+                val newState = withContext(Dispatchers.IO) {
+                    dao.isFav(song.id)
+                }
 
-                    holder.fav.setImageResource(
-                        if (newState) R.drawable.fill_heart
-                        else R.drawable.empty_heart
-                    )
+                holder.fav.setImageResource(
+                    if (newState) R.drawable.fill_heart
+                    else R.drawable.empty_heart
+                )
 
-                    // ⭐ REMOVE FROM FAV SCREEN ONLY
-                    if (!newState && isFavScreen) {
-                        list.removeAt(adapterPos)
-                        notifyItemRemoved(adapterPos)
-                    }
+                // ⭐ Remove item if on Fav screen
+                if (!newState && isFavScreen) {
+                    list.removeAt(adapterPos)
+                    notifyItemRemoved(adapterPos)
                 }
             }
         }
@@ -124,5 +146,10 @@ class MusicAdapter(
         } else {
             holder.title.setTextColor(Color.BLACK)
         }
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView)
+        scope.cancel()
     }
 }
